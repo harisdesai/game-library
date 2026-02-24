@@ -19,7 +19,7 @@ body { background:#f1f5f9; }
     animation:fade .4s ease-in-out;
 }
 @keyframes fade{
-    from{opacity:0; transform:translateY(10px);}
+    from{opacity:0; transform:translateY(-10px);}
     to{opacity:1; transform:translateY(0);}
 }
 
@@ -29,7 +29,10 @@ button{ min-height:48px; }
 
 <body class="p-3 sm:p-6">
 
-<div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-xl fade-in">
+<!-- Custom Message Box for modern notifications -->
+<div id="messageBox" class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-xl text-white font-bold shadow-xl z-50 transition-all text-center w-11/12 max-w-md"></div>
+
+<div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-xl fade-in mt-4">
 
 <h1 class="text-xl sm:text-2xl font-bold mb-6 text-center">
     AISA Smart Attendance
@@ -40,16 +43,14 @@ button{ min-height:48px; }
 <!-- PRN -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Select PRN</label>
-<div id="prnGroup"
-class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
+<div id="prnGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
 <input type="hidden" id="prn">
 </div>
 
 <!-- FACULTY -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Select Faculty</label>
-<div id="facultyGroup"
-class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
+<div id="facultyGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
 <input type="hidden" id="faculty">
 </div>
 
@@ -63,7 +64,7 @@ Lecture
 </button>
 
 <button type="button" onclick="setType('P')" id="btnP"
-class="flex-1 bg-gray-200 rounded-xl font-bold transition">
+class="flex-1 bg-gray-200 text-gray-800 rounded-xl font-bold transition">
 Lab
 </button>
 </div>
@@ -73,29 +74,26 @@ Lab
 <!-- SUBJECT -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Select Subject</label>
-<div id="subjectGroup"
-class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2"></div>
+<div id="subjectGroup" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2"></div>
 <input type="hidden" id="course">
 </div>
 
 <!-- DATE -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Date</label>
-<input type="date" id="date"
-class="w-full border p-3 rounded-xl mt-2 text-center">
+<input type="date" id="date" class="w-full border p-3 rounded-xl mt-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
 </div>
 
 <!-- TIME -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Select Time Slot</label>
-<div id="timeGroup"
-class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2"></div>
+<div id="timeGroup" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2"></div>
 <input type="hidden" id="timeslot">
 </div>
 
-<div class="sticky bottom-0 bg-white pt-4">
+<div class="sticky bottom-0 bg-white pt-4 pb-2">
 <button type="submit" id="submitBtn"
-class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-lg transition">
+class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-lg transition transform active:scale-95">
 Save Attendance
 </button>
 </div>
@@ -110,6 +108,17 @@ Save Attendance
 </footer>
 
 <script>
+// Notification Helper
+function showMessage(msg, isSuccess) {
+    const box = document.getElementById('messageBox');
+    box.innerText = msg;
+    box.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-xl text-white font-bold shadow-xl z-50 fade-in w-11/12 max-w-md ${isSuccess ? 'bg-green-600' : 'bg-red-600'}`;
+    box.classList.remove('hidden');
+    
+    setTimeout(() => {
+        box.classList.add('hidden');
+    }, 3000);
+}
 
 // ✅ YOUR GOOGLE SCRIPT URL
 const scriptUrl = "https://script.google.com/macros/s/AKfycbxMAFAVfshAAzoBSuHIO4emmvRZi1kIehTFDB0s81NJNTYcUSY0QssXmdCu0QYMpUgA/exec";
@@ -151,101 +160,122 @@ const LAB_TIMES = [
 ];
 
 function createButtons(data, containerId, hiddenId){
-const container=document.getElementById(containerId);
-container.innerHTML="";
-data.forEach(item=>{
-let btn=document.createElement("button");
-btn.type="button";
-btn.innerText=item;
-btn.className="bg-gray-200 hover:bg-blue-600 hover:text-white rounded-xl text-sm font-medium transition";
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
+    document.getElementById(hiddenId).value = ""; // Reset hidden value when switching
 
-btn.onclick=()=>{
-document.getElementById(hiddenId).value=item;
-Array.from(container.children).forEach(b=>b.classList.remove("active-btn"));
-btn.classList.add("active-btn");
-};
-container.appendChild(btn);
-});
+    data.forEach(item => {
+        let btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerText = item;
+        btn.className = "bg-gray-200 text-gray-800 hover:bg-blue-600 hover:text-white rounded-xl text-sm font-medium transition duration-200";
+
+        btn.onclick = () => {
+            document.getElementById(hiddenId).value = item;
+            Array.from(container.children).forEach(b => b.classList.remove("active-btn"));
+            btn.classList.add("active-btn");
+        };
+        container.appendChild(btn);
+    });
 }
 
-createButtons(PRNS,"prnGroup","prn");
-createButtons(FACULTY,"facultyGroup","faculty");
+createButtons(PRNS, "prnGroup", "prn");
+createButtons(FACULTY, "facultyGroup", "faculty");
 
+// Fixed class toggling logic
 function setType(val){
-document.getElementById("entryType").value=val;
+    document.getElementById("entryType").value = val;
+    
+    const btnL = document.getElementById("btnL");
+    const btnP = document.getElementById("btnP");
 
-document.getElementById("btnL").classList.remove("bg-blue-600","text-white");
-document.getElementById("btnP").classList.remove("bg-blue-600","text-white");
-document.getElementById("btnL").classList.add("bg-gray-200");
-document.getElementById("btnP").classList.add("bg-gray-200");
+    // 1. Remove active classes from both
+    btnL.classList.remove("bg-blue-600", "text-white");
+    btnP.classList.remove("bg-blue-600", "text-white");
 
-if(val==="L"){
-document.getElementById("btnL").classList.add("bg-blue-600","text-white");
-createButtons(LECTURES,"subjectGroup","course");
-createButtons(LECTURE_TIMES,"timeGroup","timeslot");
-}else{
-document.getElementById("btnP").classList.add("bg-blue-600","text-white");
-createButtons(LABS,"subjectGroup","course");
-createButtons(LAB_TIMES,"timeGroup","timeslot");
+    // 2. Add inactive classes to both
+    btnL.classList.add("bg-gray-200", "text-gray-800");
+    btnP.classList.add("bg-gray-200", "text-gray-800");
+
+    if(val === "L"){
+        // 3. Remove inactive class from active button and add active class
+        btnL.classList.remove("bg-gray-200", "text-gray-800");
+        btnL.classList.add("bg-blue-600", "text-white");
+        
+        createButtons(LECTURES, "subjectGroup", "course");
+        createButtons(LECTURE_TIMES, "timeGroup", "timeslot");
+    } else {
+        // 3. Remove inactive class from active button and add active class
+        btnP.classList.remove("bg-gray-200", "text-gray-800");
+        btnP.classList.add("bg-blue-600", "text-white");
+        
+        createButtons(LABS, "subjectGroup", "course");
+        createButtons(LAB_TIMES, "timeGroup", "timeslot");
+    }
 }
-}
 
+// Initialize default state
 setType("L");
 
 // ✅ SUBMIT HANDLER WITH VALIDATION + BUTTON LOCK
 document.getElementById("sheetForm").addEventListener("submit", async function(e){
-e.preventDefault();
+    e.preventDefault();
 
-const submitBtn = document.getElementById("submitBtn");
+    const submitBtn = document.getElementById("submitBtn");
 
-const prn = document.getElementById("prn").value;
-const faculty = document.getElementById("faculty").value;
-const course = document.getElementById("course").value;
-const type = document.getElementById("entryType").value;
-const date = document.getElementById("date").value;
-const timeslot = document.getElementById("timeslot").value;
+    const prn = document.getElementById("prn").value;
+    const faculty = document.getElementById("faculty").value;
+    const course = document.getElementById("course").value;
+    const type = document.getElementById("entryType").value;
+    const date = document.getElementById("date").value;
+    const timeslot = document.getElementById("timeslot").value;
 
-// 🔴 Mandatory Check
-if(!prn || !faculty || !course || !type || !date || !timeslot){
-alert("⚠ Please select all fields before saving attendance.");
-return;
-}
+    // 🔴 Mandatory Check
+    if(!prn || !faculty || !course || !type || !date || !timeslot){
+        showMessage("⚠ Please select all fields before saving attendance.", false);
+        return;
+    }
 
-// 🔒 Disable button
-submitBtn.disabled = true;
-submitBtn.innerText = "Saving...";
-submitBtn.classList.remove("bg-green-600","hover:bg-green-700");
-submitBtn.classList.add("bg-gray-400","cursor-not-allowed");
+    // 🔒 Disable button
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Saving...";
+    submitBtn.classList.remove("bg-green-600", "hover:bg-green-700");
+    submitBtn.classList.add("bg-gray-400", "cursor-not-allowed");
 
-const formData = new URLSearchParams();
-formData.append("prn", prn);
-formData.append("faculty", faculty);
-formData.append("course", course);
-formData.append("type", type);
-formData.append("date", date);
-formData.append("timeslot", timeslot);
-formData.append("remark","");
+    const formData = new URLSearchParams();
+    formData.append("prn", prn);
+    formData.append("faculty", faculty);
+    formData.append("course", course);
+    formData.append("type", type);
+    formData.append("date", date);
+    formData.append("timeslot", timeslot);
+    formData.append("remark", "");
 
-try{
-await fetch(scriptUrl,{
-method:"POST",
-mode:"no-cors",
-headers:{"Content-Type":"application/x-www-form-urlencoded"},
-body:formData.toString()
-});
+    try{
+        await fetch(scriptUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: formData.toString()
+        });
 
-alert("✅ Attendance Saved Successfully!");
-location.reload();
+        showMessage("✅ Attendance Saved Successfully!", true);
+        
+        // Wait briefly for user to read success message before reloading
+        setTimeout(() => {
+            location.reload();
+        }, 1500);
 
-}catch(error){
-alert("❌ Error saving attendance.");
-submitBtn.disabled = false;
-submitBtn.innerText = "Save Attendance";
-submitBtn.classList.remove("bg-gray-400","cursor-not-allowed");
-submitBtn.classList.add("bg-green-600","hover:bg-green-700");
-}
+    }catch(error){
+        showMessage("❌ Error saving attendance. Please try again.", false);
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Save Attendance";
+        submitBtn.classList.remove("bg-gray-400", "cursor-not-allowed");
+        submitBtn.classList.add("bg-green-600", "hover:bg-green-700");
+    }
 });
 </script>
 
 </body>
 </html>
+
