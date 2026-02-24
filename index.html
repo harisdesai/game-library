@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AISA Smart Attendance</title>
+<title>DKTE Smart Attendance</title>
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
@@ -23,10 +23,7 @@ body { background:#f1f5f9; }
     to{opacity:1; transform:translateY(0);}
 }
 
-/* Mobile tap improvement */
-button{
-    min-height:48px;
-}
+button{ min-height:48px; }
 </style>
 </head>
 
@@ -34,18 +31,31 @@ button{
 
 <div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-xl fade-in">
 
-<h1 class="text-xl sm:text-2xl font-bold text-center mb-6">
-AISA Smart Attendance
-</h1>
+<!-- LOGO -->
+<div class="flex flex-col items-center mb-4">
+    <img src="https://instagram.fklh3-1.fna.fbcdn.net/v/t51.2885-19/472893677_1525768161429052_8335418517620291781_n.jpg"
+         class="w-24 h-24 rounded-full border-4 border-blue-600 object-cover">
+    <h1 class="text-xl sm:text-2xl font-bold mt-3 text-center">
+        DKTE Smart Attendance
+    </h1>
+</div>
 
 <form id="sheetForm" class="space-y-6">
 
 <!-- PRN -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Select PRN</label>
-<div id="prnGroup" 
+<div id="prnGroup"
 class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
 <input type="hidden" id="prn" required>
+</div>
+
+<!-- FACULTY -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Select Faculty</label>
+<div id="facultyGroup"
+class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
+<input type="hidden" id="faculty" required>
 </div>
 
 <!-- TYPE -->
@@ -88,7 +98,6 @@ class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2"></div>
 <input type="hidden" id="timeslot" required>
 </div>
 
-<!-- Sticky Submit Button -->
 <div class="sticky bottom-0 bg-white pt-4">
 <button type="submit"
 class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-lg transition">
@@ -99,10 +108,17 @@ Save Attendance
 </form>
 </div>
 
+<!-- FOOTER -->
+<footer class="mt-8 text-center text-sm text-gray-500 pb-6">
+© 2026 All Rights Reserved | Developed by 
+<span class="font-semibold text-gray-700">Navanath</span> &
+<span class="font-semibold text-gray-700">Haris</span>
+</footer>
+
 <script>
 
 // 🔴 PASTE YOUR GOOGLE SCRIPT URL HERE
-const scriptUrl = "https://script.google.com/macros/s/AKfycbxMAFAVfshAAzoBSuHIO4emmvRZi1kIehTFDB0s81NJNTYcUSY0QssXmdCu0QYMpUgA/exec";
+const scriptUrl = "YOUR_WEB_APP_URL";
 
 document.getElementById('date').valueAsDate = new Date();
 
@@ -111,6 +127,11 @@ const PRNS = [
 "23UAM026","23UAM027","23UAM051","23UAM055","23UAM060",
 "23UAM063","23UAM079","23UAM086","23UAM111","23UAM121",
 "23UAM124","23UET113","24UAM301","24UAM302"
+];
+
+const FACULTY = [
+"DDM","SJT","VBS","SDR","PAA","SMK",
+"MMB","VRK","SKS","VAM","RCP","NDL","AGS","HPC"
 ];
 
 const LECTURES = [
@@ -135,7 +156,6 @@ const LAB_TIMES = [
 "09:40-11:40","11:50-01:50","02:30-04:30"
 ];
 
-// Create Buttons
 function createButtons(data, containerId, hiddenId){
 const container=document.getElementById(containerId);
 container.innerHTML="";
@@ -155,6 +175,7 @@ container.appendChild(btn);
 }
 
 createButtons(PRNS,"prnGroup","prn");
+createButtons(FACULTY,"facultyGroup","faculty");
 
 function setType(val){
 document.getElementById("entryType").value=val;
@@ -177,13 +198,12 @@ createButtons(LAB_TIMES,"timeGroup","timeslot");
 
 setType("L");
 
-// Submit
 document.getElementById("sheetForm").addEventListener("submit",async function(e){
 e.preventDefault();
 
 const formData=new URLSearchParams();
 formData.append("prn",document.getElementById("prn").value);
-formData.append("faculty","");
+formData.append("faculty",document.getElementById("faculty").value);
 formData.append("course",document.getElementById("course").value);
 formData.append("type",document.getElementById("entryType").value);
 formData.append("date",document.getElementById("date").value);
@@ -197,16 +217,9 @@ headers:{"Content-Type":"application/x-www-form-urlencoded"},
 body:formData.toString()
 });
 
-location.reload(); // prevent double submit
+location.reload();
 });
 
 </script>
-
 </body>
-<!-- Footer -->
-<footer class="mt-10 text-center text-sm text-gray-500 pb-6">
-    © 2026 All Rights Reserved | Developed by 
-    <span class="font-semibold text-gray-700">Navanath</span> & 
-    <span class="font-semibold text-gray-700">Haris</span>
-</footer>
 </html>
