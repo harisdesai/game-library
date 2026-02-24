@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DKTE Smart Attendance</title>
+<title>AISA Smart Attendance</title>
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
@@ -31,12 +31,9 @@ button{ min-height:48px; }
 
 <div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-xl fade-in">
 
-<!-- LOGO -->
-<div class="flex flex-col items-center mb-4">
-    <h1 class="text-xl sm:text-2xl font-bold mt-3 text-center">
-        AISA Smart Attendance
-    </h1>
-</div>
+<h1 class="text-xl sm:text-2xl font-bold mb-6 text-center">
+    AISA Smart Attendance
+</h1>
 
 <form id="sheetForm" class="space-y-6">
 
@@ -45,7 +42,7 @@ button{ min-height:48px; }
 <label class="font-bold text-gray-500 text-sm">Select PRN</label>
 <div id="prnGroup"
 class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
-<input type="hidden" id="prn" required>
+<input type="hidden" id="prn">
 </div>
 
 <!-- FACULTY -->
@@ -53,7 +50,7 @@ class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
 <label class="font-bold text-gray-500 text-sm">Select Faculty</label>
 <div id="facultyGroup"
 class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
-<input type="hidden" id="faculty" required>
+<input type="hidden" id="faculty">
 </div>
 
 <!-- TYPE -->
@@ -78,14 +75,14 @@ Lab
 <label class="font-bold text-gray-500 text-sm">Select Subject</label>
 <div id="subjectGroup"
 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2"></div>
-<input type="hidden" id="course" required>
+<input type="hidden" id="course">
 </div>
 
 <!-- DATE -->
 <div>
 <label class="font-bold text-gray-500 text-sm">Date</label>
 <input type="date" id="date"
-class="w-full border p-3 rounded-xl mt-2 text-center" required>
+class="w-full border p-3 rounded-xl mt-2 text-center">
 </div>
 
 <!-- TIME -->
@@ -93,11 +90,11 @@ class="w-full border p-3 rounded-xl mt-2 text-center" required>
 <label class="font-bold text-gray-500 text-sm">Select Time Slot</label>
 <div id="timeGroup"
 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2"></div>
-<input type="hidden" id="timeslot" required>
+<input type="hidden" id="timeslot">
 </div>
 
 <div class="sticky bottom-0 bg-white pt-4">
-<button type="submit"
+<button type="submit" id="submitBtn"
 class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-lg transition">
 Save Attendance
 </button>
@@ -106,7 +103,6 @@ Save Attendance
 </form>
 </div>
 
-<!-- FOOTER -->
 <footer class="mt-8 text-center text-sm text-gray-500 pb-6">
 © 2026 All Rights Reserved | Developed by 
 <span class="font-semibold text-gray-700">Navanath</span> &
@@ -115,7 +111,7 @@ Save Attendance
 
 <script>
 
-// 🔴 PASTE YOUR GOOGLE SCRIPT URL HERE
+// ✅ YOUR GOOGLE SCRIPT URL
 const scriptUrl = "https://script.google.com/macros/s/AKfycbxMAFAVfshAAzoBSuHIO4emmvRZi1kIehTFDB0s81NJNTYcUSY0QssXmdCu0QYMpUgA/exec";
 
 document.getElementById('date').valueAsDate = new Date();
@@ -196,18 +192,41 @@ createButtons(LAB_TIMES,"timeGroup","timeslot");
 
 setType("L");
 
-document.getElementById("sheetForm").addEventListener("submit",async function(e){
+// ✅ SUBMIT HANDLER WITH VALIDATION + BUTTON LOCK
+document.getElementById("sheetForm").addEventListener("submit", async function(e){
 e.preventDefault();
 
-const formData=new URLSearchParams();
-formData.append("prn",document.getElementById("prn").value);
-formData.append("faculty",document.getElementById("faculty").value);
-formData.append("course",document.getElementById("course").value);
-formData.append("type",document.getElementById("entryType").value);
-formData.append("date",document.getElementById("date").value);
-formData.append("timeslot",document.getElementById("timeslot").value);
+const submitBtn = document.getElementById("submitBtn");
+
+const prn = document.getElementById("prn").value;
+const faculty = document.getElementById("faculty").value;
+const course = document.getElementById("course").value;
+const type = document.getElementById("entryType").value;
+const date = document.getElementById("date").value;
+const timeslot = document.getElementById("timeslot").value;
+
+// 🔴 Mandatory Check
+if(!prn || !faculty || !course || !type || !date || !timeslot){
+alert("⚠ Please select all fields before saving attendance.");
+return;
+}
+
+// 🔒 Disable button
+submitBtn.disabled = true;
+submitBtn.innerText = "Saving...";
+submitBtn.classList.remove("bg-green-600","hover:bg-green-700");
+submitBtn.classList.add("bg-gray-400","cursor-not-allowed");
+
+const formData = new URLSearchParams();
+formData.append("prn", prn);
+formData.append("faculty", faculty);
+formData.append("course", course);
+formData.append("type", type);
+formData.append("date", date);
+formData.append("timeslot", timeslot);
 formData.append("remark","");
 
+try{
 await fetch(scriptUrl,{
 method:"POST",
 mode:"no-cors",
@@ -215,10 +234,18 @@ headers:{"Content-Type":"application/x-www-form-urlencoded"},
 body:formData.toString()
 });
 
+alert("✅ Attendance Saved Successfully!");
 location.reload();
-});
 
+}catch(error){
+alert("❌ Error saving attendance.");
+submitBtn.disabled = false;
+submitBtn.innerText = "Save Attendance";
+submitBtn.classList.remove("bg-gray-400","cursor-not-allowed");
+submitBtn.classList.add("bg-green-600","hover:bg-green-700");
+}
+});
 </script>
+
 </body>
 </html>
-
