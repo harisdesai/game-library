@@ -1,402 +1,212 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  doc, 
-  deleteDoc 
-} from 'firebase/firestore';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  signInWithCustomToken,
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  User, 
-  Calendar, 
-  Trash2, 
-  ClipboardList,
-  Download,
-  Users,
-  Search,
-  Layers,
-  CheckSquare,
-  Square,
-  Loader2,
-  Clock,
-  FlaskConical,
-  BookText,
-  Plus
-} from 'lucide-react';
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AISA Smart Attendance</title>
+<script src="https://cdn.tailwindcss.com"></script>
 
-// --- Firebase Configuration ---
-const providedConfig = {
-  apiKey: "AIzaSyB27p_5kJDr9gUZZnfM6FzoxDHvZNkA8MI",
-  authDomain: "gaminglibrary-ab71e.firebaseapp.com",
-  projectId: "gaminglibrary-ab71e",
-  storageBucket: "gaminglibrary-ab71e.appspot.com",
-  messagingSenderId: "204692863300",
-  appId: "1:204692863300:web:61322a7da7df14965bbf11",
-  measurementId: "G-0LJ8C160ET"
-};
+<style>
+body { background:#f1f5f9; }
 
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-  ? JSON.parse(__firebase_config) 
-  : providedConfig;
+.active-btn{
+    background:#2563eb !important;
+    color:white !important;
+    transform:scale(1.05);
+}
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
+.fade-in{
+    animation:fade .4s ease-in-out;
+}
+@keyframes fade{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+}
 
-const ATTENDANCE_RANGE = {
-  start: new Date('2026-02-23'),
-  end: new Date('2026-03-07')
-};
+/* Mobile tap improvement */
+button{
+    min-height:48px;
+}
+</style>
+</head>
 
-const TIME_SLOTS = [
-  { id: 1, label: "09:40 - 10:40 AM" },
-  { id: 2, label: "10:40 - 11:40 AM" },
-  { id: 3, label: "11:50 - 12:50 PM" },
-  { id: 4, label: "12:50 - 01:50 PM" },
-  { id: 5, label: "02:30 - 03:30 PM" },
-  { id: 6, label: "03:30 - 04:30 PM" },
-  { id: 7, label: "04:30 - 05:30 PM" }
+<body class="p-3 sm:p-6">
+
+<div class="max-w-5xl mx-auto bg-white p-4 sm:p-8 rounded-2xl shadow-xl fade-in">
+
+<h1 class="text-xl sm:text-2xl font-bold text-center mb-6">
+AISA Smart Attendance
+</h1>
+
+<form id="sheetForm" class="space-y-6">
+
+<!-- PRN -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Select PRN</label>
+<div id="prnGroup" 
+class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2"></div>
+<input type="hidden" id="prn" required>
+</div>
+
+<!-- TYPE -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Type</label>
+<div class="flex gap-2 mt-2">
+<button type="button" onclick="setType('L')" id="btnL"
+class="flex-1 bg-blue-600 text-white rounded-xl font-bold transition">
+Lecture
+</button>
+
+<button type="button" onclick="setType('P')" id="btnP"
+class="flex-1 bg-gray-200 rounded-xl font-bold transition">
+Lab
+</button>
+</div>
+<input type="hidden" id="entryType" value="L">
+</div>
+
+<!-- SUBJECT -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Select Subject</label>
+<div id="subjectGroup"
+class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2"></div>
+<input type="hidden" id="course" required>
+</div>
+
+<!-- DATE -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Date</label>
+<input type="date" id="date"
+class="w-full border p-3 rounded-xl mt-2 text-center" required>
+</div>
+
+<!-- TIME -->
+<div>
+<label class="font-bold text-gray-500 text-sm">Select Time Slot</label>
+<div id="timeGroup"
+class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2"></div>
+<input type="hidden" id="timeslot" required>
+</div>
+
+<!-- Sticky Submit Button -->
+<div class="sticky bottom-0 bg-white pt-4">
+<button type="submit"
+class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl text-lg shadow-lg transition">
+Save Attendance
+</button>
+</div>
+
+</form>
+</div>
+
+<script>
+
+// 🔴 PASTE YOUR GOOGLE SCRIPT URL HERE
+const scriptUrl = "https://script.google.com/macros/s/AKfycbxMAFAVfshAAzoBSuHIO4emmvRZi1kIehTFDB0s81NJNTYcUSY0QssXmdCu0QYMpUgA/exec";
+
+document.getElementById('date').valueAsDate = new Date();
+
+const PRNS = [
+"23UAM005","23UAM008","23UAM012","23UAM015","23UAM024",
+"23UAM026","23UAM027","23UAM051","23UAM055","23UAM060",
+"23UAM063","23UAM079","23UAM086","23UAM111","23UAM121",
+"23UAM124","23UET113","24UAM301","24UAM302"
 ];
 
-const TIMETABLE_DATA = {
-  "AI-A": {
-    "Monday": { 1: "T1-WT/T2-DL/T3-ADN/T4-CC", 2: "T1-WT/T2-DL/T3-ADN/T4-CC", 3: "DL/Elective-II", 4: "DL/Elective-II", 5: "OE-III/Elective-III", 6: "OE-III/Elective-III", 7: "Campus Activity" },
-    "Tuesday": { 1: "WT (CS-01)", 2: "Elective-II", 3: "T1-EL-II/T2-MDM/T3-CC/T4-ADN", 4: "T1-EL-II/T2-MDM/T3-CC/T4-ADN", 5: "T1-MDM/T2-Project/T3-Project/T4-MDM", 6: "T1-MDM/T2-Project/T3-Project/T4-MDM", 7: "ADN (ME-03)" },
-    "Wednesday": { 1: "Elective-III", 2: "DL (ME-04)", 3: "T1-CC/T2-WT/T3-DL/T4-Project", 4: "T1-CC/T2-WT/T3-DL/T4-Project", 5: "WT (ME-04)", 6: "Group Mentoring", 7: "Campus Activity" },
-    "Thursday": { 1: "MDM-EMB/MDM-IOT", 2: "Elective-II/Elective-III", 3: "OE-III (ME-04)", 4: "OE-III (ME-04)", 5: "T1-Project/T2-ADN/T3-WT/T4-DL", 6: "T1-Project/T2-ADN/T3-WT/T4-DL", 7: "Honors" },
-    "Friday": { 1: "T1-DL/T2-CC/T3-EL-II/T4-EL-II", 2: "T1-DL/T2-CC/T3-EL-II/T4-EL-II", 3: "DL (Lec)", 4: "Elective-III", 5: "T1-ADN/T2-EL-II/T3-MDM/T4-WT", 6: "T1-ADN/T2-EL-II/T3-MDM/T4-WT", 7: "Honors" }
-  },
-  "AI-B": {
-    "Monday": { 1: "ADN/DL/Elective-II", 2: "Elective-III", 3: "Elective-III/WT", 4: "WT (ME-04)", 5: "Honors", 6: "Honors", 7: "Campus Activity" },
-    "Tuesday": { 1: "Elective-III/ADN", 2: "ADN (ME-03)", 3: "DL (CS-01)", 4: "OE-III (CS-01)", 5: "Campus Activity", 6: "Campus Activity", 7: "Mentor" },
-    "Wednesday": { 1: "MDM/WT/ADN", 2: "Elective-II", 3: "OE-III", 4: "OE-III", 5: "Campus Activity", 6: "Campus Activity", 7: "Activity" },
-    "Thursday": { 1: "MDM", 2: "CC/ADN/DL", 3: "Honors", 4: "Honors", 5: "T5-CC/T6-ADN/T7-DL", 6: "T5-CC/T6-ADN/T7-DL", 7: "Activity" },
-    "Friday": { 1: "Project/WT", 2: "WT (ME-04)", 3: "Elective-II", 4: "Elective-II", 5: "Campus Activity", 6: "Campus Activity", 7: "Activity" }
-  }
+const LECTURES = [
+"DeepLearning","Elective II","Elective III",
+"WebTechnology","Advance Dot Net",
+"MDM IOT","MDM Embedded","Honours"
+];
+
+const LABS = [
+"WebTechnology Lab","Elective II Lab",
+"Cloud Computing Lab","MDM (IOT) Lab",
+"MDM (EMBEDDED) Lab","DeepLearning Lab",
+"Advanced DOT NET Lab"
+];
+
+const LECTURE_TIMES = [
+"09:40-10:40","10:40-11:40","11:50-12:50",
+"12:50-01:50","02:30-03:30","03:30-04:30","04:30-05:30"
+];
+
+const LAB_TIMES = [
+"09:40-11:40","11:50-01:50","02:30-04:30"
+];
+
+// Create Buttons
+function createButtons(data, containerId, hiddenId){
+const container=document.getElementById(containerId);
+container.innerHTML="";
+data.forEach(item=>{
+let btn=document.createElement("button");
+btn.type="button";
+btn.innerText=item;
+btn.className="bg-gray-200 hover:bg-blue-600 hover:text-white rounded-xl text-sm font-medium transition";
+
+btn.onclick=()=>{
+document.getElementById(hiddenId).value=item;
+Array.from(container.children).forEach(b=>b.classList.remove("active-btn"));
+btn.classList.add("active-btn");
 };
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [prn, setPrn] = useState('');
-  const [division, setDivision] = useState('AI-A');
-  const [selectedDate, setSelectedDate] = useState('2026-02-23');
-  const [selectedSessions, setSelectedSessions] = useState([]); // [{subject, time, isLab}]
-  const [searchTerm, setSearchTerm] = useState('');
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
-
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) { console.error("Auth failed:", error); }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthReady(!!u);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const path = collection(db, 'artifacts', appId, 'public', 'data', 'attendance_records');
-    const unsubscribe = onSnapshot(path, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const sorted = data.sort((a, b) => new Date(a.date) - new Date(b.date) || (a.prn || '').localeCompare(b.prn || ''));
-      setRecords(sorted);
-      setLoading(false);
-    }, (error) => setLoading(false));
-    return () => unsubscribe();
-  }, [user]);
-
-  // Extracts unique subjects and correctly identifies Lab vs Lecture context
-  const uniqueSubjects = useMemo(() => {
-    const dayName = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
-    const dayData = TIMETABLE_DATA[division]?.[dayName] || {};
-    
-    let subjectMap = new Map(); // subjectName -> isLab
-
-    Object.values(dayData).forEach(entry => {
-      const parts = entry.split('/');
-      // Rule: If block has 4 batch items, it's a lab. If 1 or 2, it's a lecture.
-      const isBlockLab = parts.length >= 4;
-
-      parts.forEach(p => {
-        const cleaned = p.replace(/^T\d+-/, '').trim();
-        if (cleaned && cleaned !== "No Class Scheduled") {
-          // If a subject is identified as a lab in any slot, keep it as a lab
-          const currentIsLab = subjectMap.get(cleaned) || false;
-          subjectMap.set(cleaned, currentIsLab || isBlockLab);
-        }
-      });
-    });
-
-    return Array.from(subjectMap.entries()).map(([name, isLab]) => ({
-      name,
-      isLab: isLab || name.toLowerCase().includes('project') // Project is always lab
-    }));
-  }, [selectedDate, division]);
-
-  const toggleSession = (subject, timeLabel, isLab) => {
-    const exists = selectedSessions.find(s => s.subject === subject && s.time === timeLabel);
-    if (exists) {
-      setSelectedSessions(prev => prev.filter(s => !(s.subject === subject && s.time === timeLabel)));
-    } else {
-      setSelectedSessions(prev => [...prev, { subject, time: timeLabel, isLab }]);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!authReady || !prn || selectedSessions.length === 0) return;
-    setSubmitting(true);
-    try {
-      const col = collection(db, 'artifacts', appId, 'public', 'data', 'attendance_records');
-      await addDoc(col, {
-        prn: prn.trim().toUpperCase(),
-        division,
-        date: selectedDate,
-        sessions: selectedSessions,
-        timestamp: Date.now(),
-        uid: user.uid
-      });
-      setMessage({ text: "Entry logged successfully!", type: "success" });
-      setPrn('');
-      setSelectedSessions([]);
-      setTimeout(() => setMessage({ text: '', type: '' }), 4000);
-    } catch (error) {
-      setMessage({ text: "Failed to save.", type: "error" });
-    } finally { setSubmitting(false); }
-  };
-
-  const downloadCSV = () => {
-    const headers = ["PRN", "Division", "Date", "Absences"];
-    const csvRows = [headers.join(",")];
-    records.forEach(r => {
-      const abs = (r.sessions || []).map(s => `[${s.time}] ${s.subject}`).join(" | ");
-      csvRows.push([r.prn, r.division, r.date, `"${abs}"`].join(","));
-    });
-    const blob = new Blob([csvRows.join("\n")], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `club_duty_report.csv`;
-    a.click();
-  };
-
-  const dates = useMemo(() => {
-    const d = [];
-    let curr = new Date(ATTENDANCE_RANGE.start);
-    while (curr <= ATTENDANCE_RANGE.end) {
-      d.push(curr.toISOString().split('T')[0]);
-      curr.setDate(curr.getDate() + 1);
-    }
-    return d;
-  }, []);
-
-  const filteredRecords = records.filter(r => (r.prn || '').toLowerCase().includes(searchTerm.toLowerCase()));
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        
-        {/* Header */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-indigo-600 p-3 rounded-2xl shadow-lg shadow-indigo-100">
-              <ClipboardList className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black text-indigo-900 tracking-tight leading-none">Duty Attendance</h1>
-              <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mt-2">D.K.T.E. CSE (AI & ML) Department</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
-            <div className={`w-2.5 h-2.5 rounded-full ${authReady ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-orange-500 animate-pulse'}`}></div>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
-              {authReady ? 'Active' : 'Syncing...'}
-            </span>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* Submission Panel */}
-          <div className="lg:col-span-6 space-y-6">
-            <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Division</label>
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {["AI-A", "AI-B"].map(div => (
-                      <button key={div} onClick={() => { setDivision(div); setSelectedSessions([]); }} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${division === div ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
-                        {div}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Date</label>
-                  <select value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setSelectedSessions([]); }} className="w-full bg-slate-100 border-none rounded-xl py-2 px-3 text-xs font-bold outline-none cursor-pointer">
-                    {dates.map(date => (
-                      <option key={date} value={date}>{new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', weekday: 'short' })}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Step 2: Select Subject & Time Slots</label>
-                
-                {uniqueSubjects.map((sub) => (
-                  <div key={sub.name} className={`bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shadow-sm transition-all ${sub.isLab ? 'ring-1 ring-orange-200 ring-inset' : ''}`}>
-                    {/* Subject Header */}
-                    <div className={`px-4 py-3 flex items-center justify-between border-b ${sub.isLab ? 'bg-orange-50/50 border-orange-100' : 'bg-slate-100/50 border-slate-200'}`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        {sub.isLab ? <FlaskConical className="w-4 h-4 text-orange-500" /> : <BookText className="w-4 h-4 text-indigo-500" />}
-                        <span className={`text-sm truncate leading-tight ${sub.isLab ? 'font-black uppercase italic tracking-tight' : 'font-bold text-slate-700'}`}>
-                          {sub.name}
-                        </span>
-                      </div>
-                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${sub.isLab ? 'bg-orange-100 text-orange-600' : 'bg-indigo-100 text-indigo-600'}`}>
-                        {sub.isLab ? 'Lab' : 'Lecture'}
-                      </span>
-                    </div>
-
-                    {/* Manual Time Picker Grid */}
-                    <div className="p-3 grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                      {TIME_SLOTS.map((slot) => {
-                        const isSelected = selectedSessions.find(s => s.subject === sub.name && s.time === slot.label);
-                        return (
-                          <button
-                            key={slot.id}
-                            onClick={() => toggleSession(sub.name, slot.label, sub.isLab)}
-                            className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all border ${
-                              isSelected 
-                                ? 'bg-indigo-600 border-indigo-700 text-white scale-[1.05] z-10 shadow-lg' 
-                                : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
-                            }`}
-                          >
-                            <span className="text-[10px] font-black">{slot.id}</span>
-                            <span className="text-[7px] font-bold opacity-70 whitespace-nowrap">{slot.label.split(' - ')[0]}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <input 
-                  type="text"
-                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-indigo-500 outline-none font-mono text-xl font-black uppercase tracking-tighter placeholder:text-slate-200 transition-all"
-                  placeholder="PRN NUMBER"
-                  value={prn}
-                  onChange={(e) => setPrn(e.target.value)}
-                  required
-                />
-                <button 
-                  disabled={submitting || !authReady || selectedSessions.length === 0}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Log {selectedSessions.length} Absences</>}
-                </button>
-              </form>
-              {message.text && (
-                <div className={`mt-4 p-4 rounded-2xl text-[10px] font-black text-center uppercase tracking-widest ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {message.text}
-                </div>
-              )}
-            </section>
-          </div>
-
-          {/* Master Log Panel */}
-          <div className="lg:col-span-6">
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 h-full flex flex-col overflow-hidden min-h-[600px]">
-              <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800 leading-none">Club Log</h2>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{records.length} Submissions</p>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-300" />
-                    <input type="text" className="pl-9 pr-4 py-2 w-full bg-slate-100 border-none rounded-xl text-xs font-bold outline-none" placeholder="Find PRN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                  </div>
-                  <button onClick={downloadCSV} className="p-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all">
-                    <Download className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50/80 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 backdrop-blur-sm">
-                    <tr><th className="px-6 py-4">PRN</th><th className="px-6 py-4">Records</th><th className="px-6 py-4 text-right"></th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {loading ? (
-                      <tr><td colSpan="3" className="px-6 py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-200" /></td></tr>
-                    ) : filteredRecords.length === 0 ? (
-                      <tr><td colSpan="3" className="px-6 py-20 text-center text-slate-300 font-bold italic uppercase tracking-tighter">No logs found</td></tr>
-                    ) : (
-                      filteredRecords.map((record) => (
-                        <tr key={record.id} className="hover:bg-indigo-50/20 transition-colors group">
-                          <td className="px-6 py-4 align-top">
-                            <span className="font-mono text-sm font-black text-indigo-600 tracking-tighter">{record.prn}</span>
-                            <div className="text-[8px] font-black text-slate-400 uppercase mt-1">{new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="space-y-1">
-                              {(record.sessions || []).map((s, i) => (
-                                <div key={i} className={`flex items-center gap-2 bg-white border px-2 py-1.5 rounded-lg shadow-xs max-w-[280px] ${s.isLab ? 'border-orange-100' : 'border-slate-100'}`}>
-                                  <div className="text-[8px] font-black text-slate-400 whitespace-nowrap">{s.time.split(' - ')[0]}</div>
-                                  <div className={`text-[9px] truncate ${s.isLab ? 'font-black uppercase' : 'font-bold'}`}>{s.subject}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right align-top">
-                            <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'attendance_records', record.id))} className="text-slate-200 hover:text-red-500 transition-colors p-2">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-      `}</style>
-    </div>
-  );
+container.appendChild(btn);
+});
 }
+
+createButtons(PRNS,"prnGroup","prn");
+
+function setType(val){
+document.getElementById("entryType").value=val;
+
+document.getElementById("btnL").classList.remove("bg-blue-600","text-white");
+document.getElementById("btnP").classList.remove("bg-blue-600","text-white");
+document.getElementById("btnL").classList.add("bg-gray-200");
+document.getElementById("btnP").classList.add("bg-gray-200");
+
+if(val==="L"){
+document.getElementById("btnL").classList.add("bg-blue-600","text-white");
+createButtons(LECTURES,"subjectGroup","course");
+createButtons(LECTURE_TIMES,"timeGroup","timeslot");
+}else{
+document.getElementById("btnP").classList.add("bg-blue-600","text-white");
+createButtons(LABS,"subjectGroup","course");
+createButtons(LAB_TIMES,"timeGroup","timeslot");
+}
+}
+
+setType("L");
+
+// Submit
+document.getElementById("sheetForm").addEventListener("submit",async function(e){
+e.preventDefault();
+
+const formData=new URLSearchParams();
+formData.append("prn",document.getElementById("prn").value);
+formData.append("faculty","");
+formData.append("course",document.getElementById("course").value);
+formData.append("type",document.getElementById("entryType").value);
+formData.append("date",document.getElementById("date").value);
+formData.append("timeslot",document.getElementById("timeslot").value);
+formData.append("remark","");
+
+await fetch(scriptUrl,{
+method:"POST",
+mode:"no-cors",
+headers:{"Content-Type":"application/x-www-form-urlencoded"},
+body:formData.toString()
+});
+
+location.reload(); // prevent double submit
+});
+
+</script>
+
+</body>
+<!-- Footer -->
+<footer class="mt-10 text-center text-sm text-gray-500 pb-6">
+    © 2026 All Rights Reserved | Developed by 
+    <span class="font-semibold text-gray-700">Navanath</span> & 
+    <span class="font-semibold text-gray-700">Haris</span>
+</footer>
+</html>
